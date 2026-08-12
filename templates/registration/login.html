@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Signal Desk{% endblock %}
+{% block content %}
+<style>
+  /* Inline fallback so this page always looks right even if the external
+     stylesheet fails to load (stale cache, collectstatic not run, etc). */
+  body { margin: 0; background: #10131a; color: #e9e6dc; font-family: "Inter", sans-serif; }
+  .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-card { width: 100%; max-width: 360px; background: #1e2330; border: 1px solid #2a2f3d; border-radius: 10px; padding: 28px; }
+  .login-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .login-mark { font-size: 26px; color: #e8a33d; line-height: 1; }
+  .login-brand h1 { font-family: "Space Grotesk", sans-serif; font-size: 20px; font-weight: 600; margin: 0; }
+  .login-sub { margin: 2px 0 0; font-size: 13px; color: #8a90a3; }
+  .login-card form { display: flex; flex-direction: column; gap: 14px; }
+  .login-card label { font-size: 12px; color: #8a90a3; display: flex; flex-direction: column; gap: 6px; }
+  .login-card input[type="text"], .login-card input[type="password"] {
+    background: #10131a; border: 1px solid #2a2f3d; border-radius: 6px;
+    padding: 9px 10px; color: #e9e6dc; font-family: "Inter", sans-serif; font-size: 14px;
+  }
+  .login-card input:focus { outline: 2px solid #e8a33d; outline-offset: 1px; }
+  .login-error { background: rgba(226,104,95,0.1); border: 1px solid rgba(226,104,95,0.3); color: #e2685f; font-size: 13px; padding: 8px 12px; border-radius: 6px; margin: 0 0 14px; }
+  .login-btn { font-family: "Inter", sans-serif; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 10px 16px; border: 1px solid transparent; cursor: pointer; background: #e8a33d; color: #1a1305; margin-top: 6px; }
+  .login-btn:hover { background: #f0b055; }
+  .login-footer { margin-top: 18px; font-size: 12px; color: #8a90a3; text-align: center; }
+  .login-footer a { color: #e8a33d; text-decoration: none; }
+  .login-footer a:hover { text-decoration: underline; }
+</style>
+
+<div class="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="login-mark">◈</span>
+      <div>
+        <h1>Signal Desk</h1>
+        <p class="login-sub">Sign in to your console</p>
+      </div>
+    </div>
+
+    {% if form.errors %}
+      <p class="login-error">Incorrect username or password. Double-check both and try again.</p>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <label>Username
+        <input type="text" name="username" autofocus required>
+      </label>
+      <label>Password
+        <input type="password" name="password" required>
+      </label>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="login-btn">Sign in</button>
+    </form>
+
+    <p class="login-footer">Don't have an account? <a href="{% url 'signup' %}">Sign up</a></p>
+  </div>
+</div>
+{% endblock %}
