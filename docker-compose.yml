@@ -1,0 +1,31 @@
+# Optional — you do not need Docker to run this project (see README for the
+# plain "pip install" route). This is provided for a one-command setup.
+#
+# No Postgres/Redis needed anymore: SQLite is the default database, and
+# scheduling runs via a simple management command instead of Celery.
+services:
+  web:
+    build: .
+    command: sh -c "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - .:/app
+      - media:/app/media
+    ports:
+      - "8000:8000"
+
+  # Runs the daily posting check every 5 minutes — replaces Celery Beat.
+  scheduler:
+    build: .
+    command: sh -c "while true; do python manage.py dispatch_due_posts; sleep 300; done"
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - .:/app
+      - media:/app/media
+    depends_on:
+      - web
+
+volumes:
+  media:

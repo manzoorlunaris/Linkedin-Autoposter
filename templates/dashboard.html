@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block content %}
+{% csrf_token %}
+<div class="console">
+  <header class="console__header">
+    <div class="console__brand">
+      <span class="console__mark">◈</span>
+      <div>
+        <h1>Signal Desk</h1>
+        <p class="console__sub">Autonomous LinkedIn posting console</p>
+      </div>
+    </div>
+    <div class="console__header-actions">
+      <button id="newChannelBtn" class="btn btn--primary">+ New channel</button>
+      <span class="console__user mono">{{ request.user.username }}</span>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--ghost">Log out</button>
+      </form>
+    </div>
+  </header>
+
+  <div class="console__meta">
+    <span id="channelCount">0 channels</span>
+    <span class="dot-sep">·</span>
+    <span id="liveClock" class="mono"></span>
+  </div>
+
+  <main id="channelGrid" class="channel-grid"></main>
+
+  <template id="channelTemplate">
+    <article class="strip" data-id="">
+      <div class="strip__rail"></div>
+      <div class="strip__body">
+        <div class="strip__top">
+          <span class="strip__index mono"></span>
+          <span class="strip__status">
+            <span class="status-dot"></span>
+            <span class="status-label"></span>
+          </span>
+        </div>
+        <h2 class="strip__name"></h2>
+        <p class="strip__topic"></p>
+
+        <div class="strip__row">
+          <div class="strip__field">
+            <span class="field-label">Schedule</span>
+            <span class="field-value mono strip__time"></span>
+          </div>
+          <div class="strip__field">
+            <span class="field-label">Last 7 days</span>
+            <div class="meter"></div>
+          </div>
+        </div>
+
+        <div class="strip__actions">
+          <button class="btn btn--ghost btn--connect">Connect LinkedIn</button>
+          <button class="btn btn--ghost btn--postnow">Post now</button>
+          <button class="btn btn--ghost btn--edit">Edit</button>
+          <button class="btn btn--ghost btn--log">Log</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <div id="emptyState" class="empty-state" hidden>
+    <p>No channels yet.</p>
+    <p class="empty-state__hint">A channel is one connected LinkedIn account with a fixed topic and a daily posting time.</p>
+  </div>
+</div>
+
+<!-- Add / Edit modal -->
+<div id="channelModal" class="modal">
+  <div class="modal__panel">
+    <h3 id="modalTitle">New channel</h3>
+    <form id="channelForm">
+      <input type="hidden" id="formAccountId">
+      <label>Label
+        <input type="text" id="formDisplayName" placeholder="e.g. Client A — Personal Profile" required>
+      </label>
+      <label>Topic (fixed)
+        <input type="text" id="formTopic" placeholder="e.g. Digital Marketing" required>
+      </label>
+      <label>Post every
+        <select id="formFrequency" class="select-styled">
+          <option value="1">Day (every day)</option>
+          <option value="2">2 days</option>
+          <option value="3">3 days</option>
+          <option value="4">4 days</option>
+          <option value="5">5 days</option>
+          <option value="6">6 days</option>
+          <option value="7">Week (every 7 days)</option>
+        </select>
+      </label>
+      <label>Posting times on an eligible day</label>
+      <div id="formTimesList" class="times-list"></div>
+      <button type="button" id="formAddTime" class="btn btn--ghost btn--small">+ Add time</button>
+      <label>Jitter window (minutes)
+        <input type="number" id="formWindow" min="0" max="180" value="30">
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="formActive" checked>
+        <span>Active</span>
+      </label>
+      <div class="modal__actions">
+        <button type="button" id="modalCancel" class="btn btn--ghost">Cancel</button>
+        <button type="submit" class="btn btn--primary">Save channel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Post log drawer -->
+<div id="logDrawer" class="drawer">
+  <div class="drawer__panel">
+    <div class="drawer__header">
+      <h3 id="logTitle">Post log</h3>
+      <button id="logClose" class="btn btn--ghost">Close</button>
+    </div>
+    <div id="logList" class="log-list"></div>
+  </div>
+</div>
+
+<!-- LinkedIn credentials modal -->
+<div id="linkedinModal" class="modal">
+  <div class="modal__panel">
+    <h3>Connect to LinkedIn</h3>
+    <p class="modal__hint">
+      Enter this channel's own LinkedIn Developer App credentials
+      (from <a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noopener">linkedin.com/developers/apps</a>).
+      Each channel can use a different LinkedIn app.
+    </p>
+    <form id="linkedinForm">
+      <input type="hidden" id="linkedinAccountId">
+      <label>Client ID
+        <input type="text" id="linkedinClientId" required autocomplete="off">
+      </label>
+      <label>Client Secret
+        <input type="password" id="linkedinClientSecret" required autocomplete="off">
+      </label>
+      <div class="modal__actions">
+        <button type="button" id="linkedinCancel" class="btn btn--ghost">Cancel</button>
+        <button type="submit" class="btn btn--primary" id="linkedinSubmitBtn">Connect</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script>
+  // Inline fallback so modal/drawer close buttons ALWAYS work even if the
+  // external dashboard.js is stale/cached — this runs from the page itself.
+  (function () {
+    function closeModal() {
+      var m = document.getElementById("channelModal");
+      if (m) m.classList.remove("is-open");
+    }
+    function closeDrawer() {
+      var d = document.getElementById("logDrawer");
+      if (d) d.classList.remove("is-open");
+    }
+    function closeLinkedinModal() {
+      var l = document.getElementById("linkedinModal");
+      if (l) l.classList.remove("is-open");
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var cancelBtn = document.getElementById("modalCancel");
+      if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+
+      var modal = document.getElementById("channelModal");
+      if (modal) modal.addEventListener("click", function (e) {
+        if (e.target === modal) closeModal();
+      });
+
+      var logCloseBtn = document.getElementById("logClose");
+      if (logCloseBtn) logCloseBtn.addEventListener("click", closeDrawer);
+
+      var drawer = document.getElementById("logDrawer");
+      if (drawer) drawer.addEventListener("click", function (e) {
+        if (e.target === drawer) closeDrawer();
+      });
+
+      var linkedinCancelBtn = document.getElementById("linkedinCancel");
+      if (linkedinCancelBtn) linkedinCancelBtn.addEventListener("click", closeLinkedinModal);
+
+      var linkedinModal = document.getElementById("linkedinModal");
+      if (linkedinModal) linkedinModal.addEventListener("click", function (e) {
+        if (e.target === linkedinModal) closeLinkedinModal();
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { closeModal(); closeDrawer(); closeLinkedinModal(); }
+      });
+    });
+  })();
+</script>
+{% endblock %}
